@@ -57,7 +57,7 @@ void main_step(int signo){
 	    release_sem(sem_nums[0]);
 	    release_sem(sem_nums[1]);
 	    printf("p%d -> %d %d\n", number, sem_nums[0], sem_nums[1]);
-	    sem_nums[0] = sem_nums[1] = 0;
+	    sem_nums[0] = sem_nums[1] = -1;
 	}
     }
 }

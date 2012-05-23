@@ -37,3 +37,4 @@ int contains(int arr[], int val, int len);
 int index_of(pid_t arr[], pid_t val, int len);
 int rand_range(int min, int max);
 int pick_rand(int arr[], int *len);
+void reset_all(pid_t pid);

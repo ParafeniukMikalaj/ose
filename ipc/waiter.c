@@ -1,5 +1,11 @@
 #include "waiter.h"
 
+union semun {
+	int val;
+	struct semid_ds *buf;
+	ushort * array;
+} argument;
+
 int main(void) {
     printf("Waiter started work\n");
     init();
@@ -9,6 +15,7 @@ int main(void) {
 
 void init(){
     int i;
+
     struct sigaction act;
     act.sa_handler = clear_res;
     sigemptyset(&act.sa_mask);
@@ -17,6 +24,7 @@ void init(){
 	perror("error in registrating signal\n");
 	exit(EXIT_FAILURE);
     }
+
     key_t sem_key;
     if((sem_key = ftok(sem_path, 132)) == -1){
 	perror("canno't create key\n");
@@ -27,8 +35,12 @@ void init(){
 	exit(EXIT_FAILURE);
     }
     printf("semaphore key = %x\n", sem_key);
-    for (i =0; i < PHIL_COUNT; i++)
-	semctl(sem_id, i, SETVAL);
+    argument.val = 1;
+    for (i = 0; i < PHIL_COUNT; i++)
+	if(semctl(sem_id, i, SETVAL, argument) == -1){
+	    perror("error in semctl in waiter\n");
+	    exit(EXIT_FAILURE);
+	}
 }
 
 void create_phils() {
@@ -67,15 +79,15 @@ void create_phils() {
 void main_cycle(){
     int i,j;
     for(i = 0; i < max_steps; i++){
+	reset_all(getpid());
 	int fork_count = get_free_forks();
 	int phils_count = get_free_phils();
 	printf("f: ");
 	for(j = 0; j < fork_count; j++)
-	    printf("%d", j);
-	printf("\n");
-	printf("p: ");
+	    printf("%d", free_forks[j]);
+	printf(" p: ");
 	for(j = 0; j < phils_count; j++)
-	    printf("%d", j);
+	    printf("%d", free_phils[j]);
 	printf("\n");
 	while(fork_count >= 2 && phils_count > 0){
 	    int first_fork = pick_rand(free_forks, &fork_count);
@@ -86,7 +98,7 @@ void main_cycle(){
 	for (j = 0; j < PHIL_COUNT; j++) 
 	    kill(phil_pids[j], SIGUSR1);
 	printf("time = %d\n", i);
-	sleep(3);
+	sleep(1);
     }
     clear_res(0);
 }
@@ -166,4 +178,18 @@ int pick_rand(int arr[], int *len) {
     arr[index] = arr[*len-1];
     (*len)--;
     return tmp;
+}
+
+void reset_all(pid_t pid) {
+    int i;
+    for(i = 0; i < FORK_COUNT; i++) {	
+	struct sembuf sem_buf;
+	sem_buf.sem_num = i;
+	sem_buf.sem_op = -1;
+	sem_buf.sem_flg = IPC_NOWAIT;
+	if(semop(sem_id, &sem_buf, 1) != -1){
+	    sem_buf.sem_op = 1;
+	    semop(sem_id, &sem_buf, 1);
+	}
+    }
 }
